@@ -67,7 +67,6 @@ onprecachegametype() //checked matches cerberus output
 	level.suicide_weapon = "death_self_zm";
 	precacheitem( "death_self_zm" );
 	precachemodel( "zombie_pickup_perk_bottle" );
-	precache_trophy();
 	precacheshader( "faction_cdc" );
 	precacheshader( "faction_cia" );
 	init_default_zcleansed_powerups();
@@ -105,7 +104,7 @@ onstartgametype() //checked changed to match cerberus output
 	level.nml_zombie_spawners = level.zombie_spawners;
 	level.dodge_score_highlight = 1;
 	level.dodge_show_revive_icon = 1;
-	level.custom_max_zombies = 6;
+	//level.custom_max_zombies = 6;
 	level.custom_zombie_health = 200;
 	level.nml_dogs_enabled = 0;
 	level.timercountdown = 1;
@@ -122,8 +121,8 @@ onstartgametype() //checked changed to match cerberus output
 	level.player_becomes_zombie = ::onzombifyplayer;
 	level.player_kills_player = ::player_kills_player;
 	set_zombie_var( "zombify_player", 1 );
-	set_zombie_var( "penalty_died", 1 );
-	set_zombie_var( "penalty_downed", 1 );
+	//set_zombie_var( "penalty_died", 1 );
+	//set_zombie_var( "penalty_downed", 1 );
 	if ( isDefined( level._zcleansed_weapon_progression ) )
 	{
 		for ( i = 0; i < level._zcleansed_weapon_progression.size; i++ )
@@ -132,15 +131,6 @@ onstartgametype() //checked changed to match cerberus output
 		}
 	}
 	maps/mp/gametypes_zm/_zm_gametype::rungametypemain( "zcleansed", ::zcleansed_logic );
-}
-
-turnedlog( text ) //checked matches cerberus output
-{
-	/*
-/#
-	println( "TURNEDLOG: " + text + "\n" );
-#/
-	*/
 }
 
 cleansed_player_laststand( einflictor, attacker, idamage, smeansofdeath, sweapon, vdir, shitloc, psoffsettime, deathanimduration ) //checked matches cerberus output used is_true() instead
@@ -224,7 +214,7 @@ custom_end_screen() //checked changed to match cerberus output used is_true() in
 	winner = players[ 0 ];
 	foreach ( player in players )
 	{
-		if ( ( isDefined( winner ) && player.score ) > winner.score )
+		if ( isDefined( winner ) && ( player.score > winner.score ) )
 		{
 			winner = player;
 		}
@@ -351,153 +341,6 @@ watch_game_start() //checked matches cerberus output
 	level.start_audio_allowed = 0;
 }
 
-listen_to_the_doctor_pregame() //checked matches cerberus output
-{
-	thread watch_game_start();
-	level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_start_single_0", undefined, undefined, 1, 4 );
-	wait 4;
-	if ( level.start_audio_allowed )
-	{
-		level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_start_2", undefined, undefined, 1, 8 );
-		wait 8;
-	}
-	if ( level.start_audio_allowed )
-	{
-		level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_start_3", undefined, undefined, 1, 8 );
-		wait 4;
-	}
-	if ( level.start_audio_allowed )
-	{
-		level waittill( "cleansed_game_started" );
-	}
-}
-
-listen_to_the_doctor_started() //checked matches cerberus output
-{
-	level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_cure_found_line", undefined, undefined, 1, 8 );
-	wait 8;
-}
-
-listen_to_the_doctor_monkeys() //checked changed to match cerberus output used is_true() instead
-{
-	level endon( "end_game" );
-	while ( 1 )
-	{
-		level waittill( "killed_by_decoy", killer, killee );
-		if ( !isplayer( killee ) )
-		{
-			continue;
-		}
-		if ( is_true( level.playing_turned_kill_vo ) )
-		{
-			continue;
-		}
-		if ( !is_true( killer.heard_dr_monkey_killer ) )
-		{
-			level.playing_turned_kill_vo = 1;
-			killer.heard_dr_monkey_killer = 1;
-			killer thread maps/mp/zombies/_zm_audio_announcer::leaderdialogonplayer( "dr_monkey_killer", undefined, undefined, 0 );
-		}
-		if ( !is_true( killee.heard_dr_monkey_killee ) )
-		{
-			level.playing_turned_kill_vo = 1;
-			killee.heard_dr_monkey_killee = 1;
-			wait 0.25;
-			killee thread maps/mp/zombies/_zm_audio_announcer::leaderdialogonplayer( "dr_monkey_killee", undefined, undefined, 0 );
-		}
-		if ( is_true( level.playing_turned_kill_vo ) )
-		{
-			wait 8;
-			level.playing_turned_kill_vo = 0;
-		}
-	}
-}
-
-listen_to_the_doctor_human_deaths() //checked matches cerberus output used is_true() instead
-{
-	level endon( "end_game" );
-	while ( 1 )
-	{
-		level waittill( "killed_by_zombie", killer, killee );
-		wait 0.05;
-		if ( is_true( level.playing_turned_kill_vo ) )
-		{
-			continue;
-		}
-		if ( !isDefined( killee.vo_human_killed_chance ) )
-		{
-			killee.vo_human_killed_chance = 24;
-		}
-		if ( randomint( 100 ) < killee.vo_human_killed_chance )
-		{
-			level.playing_turned_kill_vo = 1;
-			killee thread maps/mp/zombies/_zm_audio_announcer::leaderdialogonplayer( "dr_human_killed", undefined, undefined, 0 );
-			killee.vo_human_killed_chance = int( killee.vo_human_killed_chance * 0,5 );
-		}
-		if ( is_true( level.playing_turned_kill_vo ) )
-		{
-			wait 4;
-			level.playing_turned_kill_vo = 0;
-		}
-	}
-}
-
-listen_to_the_doctor_zombie_deaths() //checked matches cerberus output used is_true() instead
-{
-	level endon( "end_game" );
-	while ( 1 )
-	{
-		level waittill( "killed_by_human", killer, killee );
-		wait 0.05;
-		if ( is_true( level.playing_turned_kill_vo ) )
-		{
-			continue;
-		}
-		if ( !isDefined( killer.vo_human_killer_chance ) )
-		{
-			killer.vo_human_killer_chance = 24;
-		}
-		if ( randomint( 100 ) < killer.vo_human_killer_chance )
-		{
-			killer.vo_human_killer_chance = int( killer.vo_human_killer_chance * 0.5 );
-			level.playing_turned_kill_vo = 1;
-			killer thread maps/mp/zombies/_zm_audio_announcer::leaderdialogonplayer( "dr_human_killer", undefined, undefined, 0 );
-		}
-		if ( is_true( level.playing_turned_kill_vo ) )
-		{
-			wait 4;
-			level.playing_turned_kill_vo = 0;
-		}
-	}
-}
-
-listen_to_the_doctor_endgame() //checked does not match cerberus output did not change
-{
-	wait 5;
-	while ( maps/mp/gametypes_zm/_globallogic_utils::gettimeremaining() > 12000 )
-	{
-		wait 1;
-	}
-	r = randomint( 3 );
-	if ( r == 0 )
-	{
-		level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_countdown0", undefined, undefined, 1, 4 );
-	}
-	else if ( r == 1 )
-	{
-		level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_countdown1", undefined, undefined, 1, 4 );
-	}
-	else
-	{
-		level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_countdown2", undefined, undefined, 1, 4 );
-	}
-	while ( maps/mp/gametypes_zm/_globallogic_utils::gettimeremaining() > 500 )
-	{
-		wait 1;
-	}
-	level maps/mp/zombies/_zm_audio_announcer::leaderdialog( "dr_ending", undefined, undefined, 1, 4 );
-}
-
 anysplitscreen() //checked changed to match cerberus output
 {
 	foreach ( player in get_players() )
@@ -508,19 +351,6 @@ anysplitscreen() //checked changed to match cerberus output
 		}
 	}
 	return 0;
-}
-
-listen_to_the_doctor() //checked matches cerberus output
-{
-	listen_to_the_doctor_pregame();
-	if ( !anysplitscreen() )
-	{
-		listen_to_the_doctor_started();
-		thread listen_to_the_doctor_human_deaths();
-		thread listen_to_the_doctor_zombie_deaths();
-		thread listen_to_the_doctor_monkeys();
-	}
-	thread listen_to_the_doctor_endgame();
 }
 
 watch_survival_time() //checked matches cerberus output
@@ -536,7 +366,7 @@ watch_survival_time() //checked matches cerberus output
 	}
 	while ( 1 )
 	{
-		if ( isDefined( level.playing_turned_kill_vo ) && !level.playing_turned_kill_vo )
+		if ( !is_true( level.playing_turned_kill_vo ) )
 		{
 			if ( randomint( 100 ) < self.vo_human_survival_chance )
 			{
@@ -553,6 +383,7 @@ watch_survival_time() //checked matches cerberus output
 
 zcleansed_logic() //checked changed to match cerberus output
 {
+	level thread maps/mp/zombies/_zm::round_start();
 	setdvar( "player_lastStandBleedoutTime", "0.05" );
 	setmatchtalkflag( "DeadChatWithDead", 1 );
 	setmatchtalkflag( "DeadChatWithTeam", 1 );
@@ -567,17 +398,15 @@ zcleansed_logic() //checked changed to match cerberus output
 	{
 		door setinvisibletoall();
 	}
-	level thread maps/mp/zombies/_zm_blockers::open_all_zbarriers();
+	//stop board removal
+	//level thread maps/mp/zombies/_zm_blockers::open_all_zbarriers();
 	level thread delay_box_hide();
 	flag_wait( "initial_players_connected" );
 	level.gamestarttime = getTime();
 	level.gamelengthtime = undefined;
 	level.custom_spawnplayer = ::respawn_cleansed_player;
 	allow_player_movement( 0 );
-	setup_players();
 	flag_wait( "initial_blackscreen_passed" );
-	level thread listen_to_the_doctor();
-	level thread playturnedmusic();
 	level notify( "start_fullscreen_fade_out" );
 	wait 1.5;
 	players = get_players();
@@ -624,12 +453,6 @@ wait_for_round_end() //checked matches cerberus output
 
 end_game_early() //checked matches cerberus output
 {
-	/*
-/#
-	iprintlnbold( "SOLO GAME - RELEASE ONLY" );
-	return;
-#/
-	*/
 	level.forcedend = 1;
 	level notify( "early_game_end" );
 	level notify( "end_game" );
@@ -744,11 +567,10 @@ onplayerdisconnect() //checked changed to match cerberus output used is_true() i
 	self waittill( "disconnect" );
 	if ( get_players().size <= 1 )
 	{
-		end_game_early();
+		//end_game_early();
 	}
 	if ( !is_true( level.ingraceperiod ) )
 	{
-		thread checkzombiehumanratio();
 		wait 2;
 		players = get_players();
 		foreach ( player in players )
@@ -773,14 +595,6 @@ zombie_ramp_up() //checked matches cerberus output
 		self.maxhealth = maps/mp/zombies/_zm::ai_zombie_health( 2 );
 	}
 	self.health = self.maxhealth;
-}
-
-precache_trophy() //checked matches cerberus output
-{
-}
-
-create_trophy() //checked matches cerberus output
-{
 }
 
 give_trophy() //checked matches cerberus output
@@ -873,7 +687,6 @@ leaderwatch() //checked changed to match cerberus output may be suspicous
 {
 	level endon( "early_game_end" );
 	level endon( "normal_game_end" );
-	create_trophy();
 	cleansed_set_leader( undefined );
 	while ( 1 )
 	{
@@ -936,7 +749,6 @@ humanifyplayer( for_killing ) //checked matches cerberus output
 	self turnedhuman();
 	for_killing waittill_notify_or_timeout( "respawned", 0.75 );
 	wait_network_frame();
-	checkzombiehumanratio( self );
 	self.last_player_attacker = undefined;
 	self freezecontrolswrapper( level.player_movement_suppressed );
 	self thread watch_survival_time();
@@ -972,7 +784,6 @@ onzombifyplayer() //checked partially changed to match cerberus output used is_t
 	{
 		self check_for_drops( 1 );
 		self player_suicide();
-		checkzombiehumanratio( undefined, self );
 	}
 	self setclientfield( "player_has_eyes", 0 );
 	self notify( "zombified" );
@@ -996,61 +807,6 @@ onzombifyplayer() //checked partially changed to match cerberus output used is_t
 	self.in_zombify_call = 0;
 }
 
-playerfakedeath( vdir ) //checked changed to match cerberus output used is_true() instead
-{
-	if ( !is_true( self.is_zombie ) )
-	{
-		self endon( "disconnect" );
-		level endon( "game_module_ended" );
-		level notify( "fake_death" );
-		self notify( "fake_death" );
-		self enableinvulnerability();
-		self takeallweapons();
-		self freezecontrolswrapper( 1 );
-		self.ignoreme = 1;
-		origin = self.origin;
-		xyspeed = ( 0, 0, 0 );
-		angles = self getplayerangles();
-		angles = ( angles[ 0 ], angles[ 1 ], angles[ 2 ] + randomfloatrange( -5, 5 ) );
-		if ( isDefined( vdir ) && length( vdir ) > 0 )
-		{
-			xyspeedmag = 40 + randomint( 12 ) + randomint( 12 );
-			xyspeed = xyspeedmag * vectornormalize( ( vdir[ 0 ], vdir[ 1 ], 0 ) );
-		}
-		linker = spawn( "script_origin", ( 0, 0, 0 ) );
-		linker.origin = origin;
-		linker.angles = angles;
-		self._fall_down_anchor = linker;
-		self playerlinkto( linker );
-		self playsoundtoplayer( "zmb_player_death_fall", self );
-		origin = playerphysicstrace( origin, origin + xyspeed );
-		origin += vectorScale( ( 0, 0, -1 ), 52 );
-		lerptime = 0.5;
-		linker moveto( origin, lerptime, lerptime );
-		linker rotateto( angles, lerptime, lerptime );
-		self freezecontrolswrapper( 1 );
-		linker waittill( "movedone" );
-		self giveweapon( "death_throe_zm" );
-		self switchtoweapon( "death_throe_zm" );
-		bounce = randomint( 4 ) + 8;
-		origin = ( origin + ( 0, 0, bounce ) ) - ( xyspeed * 0.1 );
-		lerptime = bounce / 50;
-		linker moveto( origin, lerptime, 0, lerptime );
-		linker waittill( "movedone" );
-		origin = ( origin + ( 0, 0, bounce * -1 ) ) + ( xyspeed * 0.1 );
-		lerptime /= 2;
-		linker moveto( origin, lerptime, lerptime );
-		linker waittill( "movedone" );
-		linker moveto( origin, 5, 0 );
-		wait 5;
-		linker delete();
-		self.ignoreme = 0;
-		self takeweapon( "death_throe_zm" );
-		self disableinvulnerability();
-		self freezecontrolswrapper( 0 );
-	}
-}
-
 onspawnzombie() //checked matches cerberus output
 {
 }
@@ -1062,32 +818,6 @@ makefindfleshstructs() //checked changed to match cerberus output
 	{
 		struct.script_string = "find_flesh";
 	}
-}
-
-setup_players() //dev call ignored
-{
-	/*
-/#
-	while ( getDvarInt( #"99BF96D1" ) != 0 )
-	{
-		_a1269 = level._turned_zombie_respawnpoints;
-		_k1269 = getFirstArrayKey( _a1269 );
-		while ( isDefined( _k1269 ) )
-		{
-			spawnpoint = _a1269[ _k1269 ];
-			text = "";
-			color = ( 0, 0, 0 );
-			if ( !isDefined( spawnpoint.angles ) )
-			{
-				text = "No Angles Defined";
-				color = ( 0, 0, 0 );
-				spawnpoint.angles = ( 0, 0, 0 );
-			}
-			_k1269 = getNextArrayKey( _a1269, _k1269 );
-#/
-		}
-	}
-	*/
 }
 
 setup_player() //checked matches cerberus output
@@ -1292,96 +1022,6 @@ waitforhumanselection() //checked matches cerberus output
 	level waittill( "initial_human_selected" );
 }
 
-checkzombiehumanratio( playertomove, playertoignore ) //checked partially changed to match cerberus output see compiler_limitations.md No. 2 used is_true() instead
-{
-	zombiecount = 0;
-	humancount = 0;
-	zombieexist = 0;
-	humanexist = 0;
-	earliestzombie = undefined;
-	earliestzombietime = 99999999;
-	if ( get_players().size <= 1 )
-	{
-		end_game_early();
-	}
-	while ( is_true( level.checking_human_zombie_ratio ) )
-	{
-		wait 0.05;
-	}
-	level.checking_human_zombie_ratio = 1;
-	if ( isDefined( playertomove ) )
-	{
-		someonebecominghuman = 0;
-		players = get_players();
-		foreach ( player in players )
-		{
-			if ( is_true( player.is_in_process_of_humanify ) )
-			{
-				someonebecominghuman = 1;
-			}
-		}
-		if ( isDefined( someonebecominghuman ) && !someonebecominghuman )
-		{
-			playertomove turn_to_human();
-		}
-		level.checking_human_zombie_ratio = 0;
-		return;
-	}
-	players = get_players();
-	foreach ( player in players )
-	{
-		if ( isDefined( playertoignore ) && playertoignore == player )
-		{
-		}
-		else
-		{
-			if ( !is_true( player.is_zombie ) && !is_true( player.is_in_process_of_zombify ) )
-			{
-				humancount++;
-				humanexist = 1;
-			}
-			else
-			{
-				zombiecount++;
-				zombieexist = 1;
-				if ( is_true( player.zombification_time ) < earliestzombietime )
-				{
-					earliestzombie = player;
-					earliestzombietime = player.zombification_time;
-				}
-			}
-		}
-	}
-	if ( humancount > 1 )
-	{
-		players = get_players( "allies" );
-		if ( isDefined( players ) && players.size > 0 )
-		{
-			player = random( players );
-			player thread cover_transition();
-			player disappear_in_flash( 1 );
-			player turn_to_zombie();
-			zombiecount++;
-		}
-	}
-	if ( !humanexist )
-	{
-		players = get_players( level.zombie_team );
-		if ( isDefined( players ) && players.size > 0 )
-		{
-			player = random( players );
-			player thread cover_transition();
-			player disappear_in_flash( 0 );
-			player.random_human = 1;
-			player turn_to_human();
-			player.random_human = 0;
-			zombiecount--;
-
-		}
-	}
-	level.checking_human_zombie_ratio = 0;
-}
-
 get_player_rank() //checked partially changed to match cerberus output changed at own discretion
 {
 	level.player_score_sort = [];
@@ -1402,11 +1042,6 @@ get_player_rank() //checked partially changed to match cerberus output changed a
 			return index;
 		}
 	}
-	/*
-/#
-	assertmsg( "This should not happen" );
-#/
-	*/
 	return 0;
 }
 
@@ -1421,7 +1056,8 @@ player_add_score( bonus ) //checked matches cerberus output used is_true() inste
 	{
 		mult = level.zombie_vars[ "allies" ][ "zombie_point_scalar" ];
 	}
-	self maps/mp/zombies/_zm_score::add_to_player_score( bonus * mult );
+	var = bonus * mult;
+	self maps/mp/zombies/_zm_score::add_to_player_score( var );
 }
 
 player_sub_score( penalty ) //checked matches cerberus output
@@ -1433,15 +1069,6 @@ player_sub_score( penalty ) //checked matches cerberus output
 player_suicide() //checked matches cerberus output
 {
 	self player_sub_score( level.human_player_suicide_penalty );
-	/*
-/#
-	if ( get_players().size < 2 )
-	{
-		self.intermission = 0;
-		thread spawn_initial_cure_powerup();
-#/
-	}
-	*/
 }
 
 player_kills_player( einflictor, eattacker, idamage, idflags, smeansofdeath, sweapon, vpoint, vdir, shitloc, psoffsettime ) //checked changed to match cerberus output used is_true() instead
@@ -1521,7 +1148,7 @@ player_score_update() //checked matches cerberus output used is_true() instead
 	self endon( "_zombie_game_over" );
 	self endon( "disconnect" );
 	level endon( "stop_player_scores" );
-	waittime = 0,05;
+	waittime = 0.05;
 	while ( 1 )
 	{
 		self waittill_any_or_timeout( waittime, "zombify", "humanify" );
@@ -1537,7 +1164,7 @@ player_score_update() //checked matches cerberus output used is_true() instead
 		{
 			if ( !cleansed_alive_check( self ) )
 			{
-				waittime = 0,05;
+				waittime = 0.05;
 				break;
 			}
 			else if ( is_true( self.is_zombie ) )
@@ -1604,7 +1231,6 @@ zcleansed_zombie_powerup_grab( powerup, zombie_player ) //checked changed to mat
 				}
 			}
 			break;
-		}
 	}
 }
 
@@ -1707,16 +1333,15 @@ add_cleansed_powerup( name, powerupmodel, text, team, zombie_death_frequency, hu
 init_cleansed_powerups() //checked changed to match cerberus output
 {
 	level._effect[ "powerup_on_solo" ] = loadfx( "misc/fx_zombie_powerup_on_blue" );
-	add_cleansed_powerup( "green_nuke", "zombie_bomb", &"ZOMBIE_THIS_IS_A_BUG", 0, 0,4, 0, ::turned_powerup_green_nuke );
+	add_cleansed_powerup( "green_nuke", "zombie_bomb", &"ZOMBIE_THIS_IS_A_BUG", 0, 0.4, 0, ::turned_powerup_green_nuke );
 	add_cleansed_powerup( "green_double", "zombie_x2_icon", &"ZOMBIE_THIS_IS_A_BUG", 0, 1, 0, ::turned_powerup_green_double );
-	add_cleansed_powerup( "green_insta", "zombie_skull", &"ZOMBIE_THIS_IS_A_BUG", 0, 0,1, 0, ::turned_powerup_green_insta );
+	add_cleansed_powerup( "green_insta", "zombie_skull", &"ZOMBIE_THIS_IS_A_BUG", 0, 0.1, 0, ::turned_powerup_green_insta );
 	add_cleansed_powerup( "green_ammo", "zombie_ammocan", &"ZOMBIE_POWERUP_MAX_AMMO", 0, 1, 0, ::turned_powerup_green_ammo );
-	add_cleansed_powerup( "green_monkey", level.cymbal_monkey_model, &"ZOMBIE_THIS_IS_A_BUG", 0, 0,4, 0, ::turned_powerup_green_monkey );
-	add_cleansed_powerup( "red_nuke", "zombie_bomb", &"ZOMBIE_THIS_IS_A_BUG", 1, 0, 0,4, ::turned_powerup_red_nuke );
+	add_cleansed_powerup( "green_monkey", level.cymbal_monkey_model, &"ZOMBIE_THIS_IS_A_BUG", 0, 0.4, 0, ::turned_powerup_green_monkey );
 	add_cleansed_powerup( "red_ammo", "zombie_ammocan", &"ZOMBIE_THIS_IS_A_BUG", 1, 0, 1, ::turned_powerup_red_ammo );
 	add_cleansed_powerup( "red_double", "zombie_x2_icon", &"ZOMBIE_THIS_IS_A_BUG", 1, 0, 1, ::turned_powerup_red_double );
-	add_cleansed_powerup( "yellow_double", "zombie_x2_icon", &"ZOMBIE_THIS_IS_A_BUG", 2, 0,1, 0,1, ::turned_powerup_yellow_double );
-	add_cleansed_powerup( "yellow_nuke", "zombie_bomb", &"ZOMBIE_THIS_IS_A_BUG", 2, 0,01, 0,01, ::turned_powerup_yellow_nuke );
+	add_cleansed_powerup( "yellow_double", "zombie_x2_icon", &"ZOMBIE_THIS_IS_A_BUG", 2, 0.1, 0.1, ::turned_powerup_yellow_double );
+	add_cleansed_powerup( "yellow_nuke", "zombie_bomb", &"ZOMBIE_THIS_IS_A_BUG", 2, 0.01, 0.01, ::turned_powerup_yellow_nuke );
 	level.cleansed_powerup_history_depth = [];
 	level.cleansed_powerup_history_depth[ 0 ] = 2;
 	level.cleansed_powerup_history_depth[ 1 ] = 1;
@@ -1936,27 +1561,6 @@ turned_powerup_green_monkey( player ) //checked matches cerberus output
 	player notify( "powerup_green_monkey" );
 }
 
-turned_powerup_red_nuke( player ) //checked partially changed to match cerberus output see compiler_limitations.md No. 2 used is_true() instead
-{
-	location = self.origin;
-	playfx( level.zombie_powerups[ "nuke" ].fx, location );
-	level thread maps/mp/zombies/_zm_powerups::nuke_flash();
-	players = get_players();
-	foreach ( target in players )
-	{
-		if ( !cleansed_alive_check( target ) )
-		{
-		}
-		else if ( is_true( target.is_zombie ) )
-		{
-		}
-		else
-		{
-			target thread player_nuke( player );
-		}
-	}
-}
-
 turned_powerup_red_ammo( player ) //checked matches cerberus output
 {
 	level thread maps/mp/zombies/_zm_powerups::empty_clip_powerup( self );
@@ -1991,21 +1595,4 @@ turned_powerup_yellow_nuke( player ) //checked partially changed to match cerber
 			}
 		}
 	}
-}
-
-playturnedmusic() //checked matches cerberus output
-{
-	ent = spawn( "script_origin", ( 0, 0, 0 ) );
-	ent thread stopturnedmusic();
-	playsoundatposition( "mus_zmb_gamemode_start", ( 0, 0, 0 ) );
-	wait 5;
-	ent playloopsound( "mus_zmb_gamemode_loop", 5 );
-}
-
-stopturnedmusic() //checked matches cerberus output
-{
-	level waittill( "end_game" );
-	self stoploopsound( 1.5 );
-	wait 1;
-	self delete();
 }
