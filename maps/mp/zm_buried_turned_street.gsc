@@ -7,6 +7,8 @@
 #include maps/mp/zombies/_zm_utility;
 #include common_scripts/utility;
 #include maps/mp/_utility;
+#include maps/mp/zombies/_zm_weapons;
+#include maps/mp/zombies/_zm_unitrigger;
 
 precache() //checked matches cerberus output
 {
@@ -25,7 +27,7 @@ main() //checked matches cerberus output
 	maps/mp/gametypes_zm/_zm_gametype::setup_standard_objects( "street" );
 	street_treasure_chest_init();
 	generatebuildabletarps();
-	//deletechalktriggers();
+	deletechalktriggers();
 	//deleteslothbarricade( "candystore_alley" );
 	deleteslothbarricades( 0 );
 	//deletebuyabledebris( 1 );
@@ -41,7 +43,7 @@ main() //checked matches cerberus output
 		level.humanify_custom_loadout = maps/mp/gametypes_zm/zcleansed::shotgunloadout;
 		level.cleansed_zombie_round = 2;
 	}
-	spawnmapcollision( "zm_collision_buried_street_turned" );
+	//spawnmapcollision( "zm_collision_buried_street_turned" );
 	flag_wait( "initial_blackscreen_passed" );
 	flag_wait( "start_zombie_round_logic" );
 	flag_set( "power_on" );
@@ -82,3 +84,79 @@ street_treasure_chest_init() //checked matches cerberus output
 	level.chests[ level.chests.size ] = gun_chest;
 	maps/mp/zombies/_zm_magicbox::treasure_chest_init( "start_chest" );
 }
+
+/*
+_weapon_spawner( weapon_angles, weapon_coordinates, chalk_fx, weapon_name, weapon_model, target, targetname )
+{
+	tempmodel = spawn( "script_model", ( 0, 0, 0 ) );
+	precachemodel( weapon_model );
+	unitrigger_stub = spawnstruct();
+	unitrigger_stub.origin = weapon_coordinates;
+	unitrigger_stub.angles = weapon_angles;
+	tempmodel.origin = weapon_coordinates;
+	tempmodel.angles = weapon_angles;
+	mins = undefined;
+	maxs = undefined;
+	absmins = undefined;
+	absmaxs = undefined;
+	tempmodel setmodel( weapon_model );
+	tempmodel useweaponhidetags( weapon_name );
+	mins = tempmodel getmins();
+	maxs = tempmodel getmaxs();
+	absmins = tempmodel getabsmins();
+	absmaxs = tempmodel getabsmaxs();
+	bounds = absmaxs - absmins;
+	unitrigger_stub.script_length = bounds[ 0 ] * 0.25;
+	unitrigger_stub.script_width = bounds[ 1 ];
+	unitrigger_stub.script_height = bounds[ 2 ];
+	unitrigger_stub.origin -= anglesToRight( unitrigger_stub.angles ) * ( unitrigger_stub.script_length * 0.4 );
+	unitrigger_stub.target = target;
+	unitrigger_stub.targetname = targetname;
+	unitrigger_stub.cursor_hint = "HINT_NOICON";
+	if ( unitrigger_stub.targetname == "weapon_upgrade" )
+	{
+		unitrigger_stub.cost = get_weapon_cost( weapon_name );
+		if ( !is_true( level.monolingustic_prompt_format ) )
+		{
+			unitrigger_stub.hint_string = get_weapon_hint( weapon_name );
+			unitrigger_stub.hint_parm1 = unitrigger_stub.cost;
+		}
+		else
+		{
+			unitrigger_stub.hint_parm1 = get_weapon_display_name( weapon_name );
+			if ( !isDefined( unitrigger_stub.hint_parm1 ) || unitrigger_stub.hint_parm1 == "" || unitrigger_stub.hint_parm1 == "none" )
+			{
+				unitrigger_stub.hint_parm1 = "missing weapon name " + weapon_name;
+			}
+			unitrigger_stub.hint_parm2 = unitrigger_stub.cost;
+			unitrigger_stub.hint_string = &"ZOMBIE_WEAPONCOSTONLY";
+		}
+	}
+	unitrigger_stub.weapon_upgrade = weapon_name;
+	unitrigger_stub.script_unitrigger_type = "unitrigger_box_use";
+	unitrigger_stub.require_look_at = 1;
+	unitrigger_stub.require_look_from = 0;
+	unitrigger_stub.zombie_weapon_upgrade = weapon_name;
+	maps/mp/zombies/_zm_unitrigger::unitrigger_force_per_player_triggers( unitrigger_stub, 1 );
+	if ( is_melee_weapon( weapon_name ) )
+	{
+		if ( weapon_name == "tazer_knuckles_zm" && isDefined( level.taser_trig_adjustment ) )
+		{
+			unitrigger_stub.origin += level.taser_trig_adjustment;
+		}
+		maps/mp/zombies/_zm_unitrigger::register_static_unitrigger( unitrigger_stub, ::melee_weapon_think );
+	}
+	else if ( weapon_name == "claymore_zm" )
+	{
+		unitrigger_stub.prompt_and_visibility_func = ::claymore_unitrigger_update_prompt;
+		maps/mp/zombies/_zm_unitrigger::register_static_unitrigger( unitrigger_stub, ::buy_claymores );
+	}
+	else
+	{
+		unitrigger_stub.prompt_and_visibility_func = ::wall_weapon_update_prompt;
+		maps/mp/zombies/_zm_unitrigger::register_static_unitrigger( unitrigger_stub, ::weapon_spawn_think );
+	}
+	tempmodel delete();
+    thread playchalkfx( chalk_fx, weapon_coordinates, weapon_angles );
+}
+*/
