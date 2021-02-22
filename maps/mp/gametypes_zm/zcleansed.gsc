@@ -18,8 +18,18 @@
 #include maps/mp/gametypes_zm/_hud;
 #include maps/mp/_utility;
 
+/*
+Gamemode: Infection
+Objective for Humans: Survive until the timelimit
+Objective for Zombies: Infect all humans
+Winner: Most score acquired
+*/
+
 main() //checked matches cerberus output
 {
+	level.speed_change_round = undefined;
+	//level thread monitor_alive_players(); //disabled for now
+	init_custom_zombie_properties();
 	level.using_zombie_powerups = 1;
 	level._game_mode_powerup_zombie_grab = ::zcleansed_zombie_powerup_grab;
 	level._zombiemode_powerup_grab = ::zcleansed_powerup_grab;
@@ -45,7 +55,7 @@ main() //checked matches cerberus output
 	level.human_player_kill_points = 50;
 	level.human_player_suicide_penalty = 0;
 	level.score_rank_bonus = array( 1.5, 0.75, 0.5, 0.25 );
-	if ( isDefined( level.should_use_cia ) && level.should_use_cia )
+	if ( is_true( level.should_use_cia ) )
 	{
 		level.characterindex = 0;
 	}
@@ -121,8 +131,8 @@ onstartgametype() //checked changed to match cerberus output
 	level.player_becomes_zombie = ::onzombifyplayer;
 	level.player_kills_player = ::player_kills_player;
 	set_zombie_var( "zombify_player", 1 );
-	//set_zombie_var( "penalty_died", 1 );
-	//set_zombie_var( "penalty_downed", 1 );
+	set_zombie_var( "penalty_died", 0 );
+	set_zombie_var( "penalty_downed", 0 );
 	if ( isDefined( level._zcleansed_weapon_progression ) )
 	{
 		for ( i = 0; i < level._zcleansed_weapon_progression.size; i++ )
@@ -383,6 +393,8 @@ watch_survival_time() //checked matches cerberus output
 
 zcleansed_logic() //checked changed to match cerberus output
 {
+	level.round_wait_func = ::round_wait;
+	level.round_spawn_func = ::turned_round_spawn_func;
 	level thread maps/mp/zombies/_zm::round_start();
 	setdvar( "player_lastStandBleedoutTime", "0.05" );
 	setmatchtalkflag( "DeadChatWithDead", 1 );
@@ -393,14 +405,7 @@ zcleansed_logic() //checked changed to match cerberus output
 	level.zombie_include_powerups[ "carpenter" ] = 0;
 	level.noroundnumber = 1;
 	level._supress_survived_screen = 1;
-	doors = getentarray( "zombie_door", "targetname" );
-	foreach ( door in doors )
-	{
-		door setinvisibletoall();
-	}
-	//stop board removal
-	//level thread maps/mp/zombies/_zm_blockers::open_all_zbarriers();
-	level thread delay_box_hide();
+	level thread maps/mp/zombies/_zm_blockers::open_all_zbarriers();
 	flag_wait( "initial_players_connected" );
 	level.gamestarttime = getTime();
 	level.gamelengthtime = undefined;
@@ -412,13 +417,16 @@ zcleansed_logic() //checked changed to match cerberus output
 	players = get_players();
 	for ( i = 0; i < players.size; i++ )
 	{
-		players[ i ] thread create_match_start_message( &"ZOMBIE_FIND_THE_CURE", 3 );
+		//players[ i ] thread create_match_start_message( &"ZOMBIE_FIND_THE_CURE", 3 );
 	}
 	allow_player_movement( 1 );
-	spawn_initial_cure_powerup();
+	registertimelimit( 0, 1440 );
+	wait 30;
+	pick_random_player_to_be_zombie();
+	wait 30;
+	level thread increase_zombie_difficulty();
 	waitforhumanselection();
 	level notify( "cleansed_game_started" );
-	level thread leaderwatch();
 	players = get_players();
 	for ( i = 0; i < players.size; i++ )
 	{
@@ -431,7 +439,6 @@ zcleansed_logic() //checked changed to match cerberus output
 	{
 		players[ i ] thread destroystartmsghud();
 	}
-	registertimelimit( 0, 1440 );
 	level.discardtime = getTime() - level.starttime;
 	level thread watch_for_end_game();
 	wait_for_round_end();
@@ -529,21 +536,29 @@ destroystartmsghud() //checked matches cerberus output
 	self.match_start_msg_hud = undefined;
 }
 
-delay_box_hide() //checked matches cerberus output
-{
-	wait 2;
-	start_chest = getstruct( "start_chest", "script_noteworthy" );
-	if ( isDefined( start_chest ) )
-	{
-		start_chest maps/mp/zombies/_zm_magicbox::hide_chest();
-	}
-}
-
 onplayerconnect() //checked matches cerberus output
 {
 	for ( ;; )
 	{
 		level waittill( "connected", player );
+		if ( !isDefined( first_connected_player ) )
+		{
+			first_connected_player = 1;
+			ents = getEntArray();
+			foreach ( ent in ents )
+			{
+				if ( isDefined( ent.model ) && ent.model != "" )
+				{
+					logline4 = ent.model + "\n";
+					logprint( logline4 );
+				}
+				if ( isDefined( ent.origin ) && ent.origin == ( -651.34, 599.69, 33 ) || isDefined( ent.origin ) && ent.origin == ( -287.82, 594.71, 25.57 ) || isDefined( ent.origin ) && ent.origin == ( -143.82, -60.29, 87.53 ) )
+				{
+					ent delete();
+				}
+			}
+			level.speed_change_round = undefined;
+		}
 		player thread onplayerlaststand();
 		player thread onplayerdisconnect();
 		player thread setup_player();
@@ -565,10 +580,6 @@ onplayerdisconnect() //checked changed to match cerberus output used is_true() i
 {
 	level endon( "end_game" );
 	self waittill( "disconnect" );
-	if ( get_players().size <= 1 )
-	{
-		//end_game_early();
-	}
 	if ( !is_true( level.ingraceperiod ) )
 	{
 		wait 2;
@@ -586,14 +597,7 @@ zombie_ramp_up() //checked matches cerberus output
 	self endon( "zombie_ramp_up" );
 	self endon( "death_or_disconnect" );
 	self endon( "humanify" );
-	if ( isDefined( level.cleansed_zombie_round ) )
-	{
-		self.maxhealth = maps/mp/zombies/_zm::ai_zombie_health( level.cleansed_zombie_round );
-	}
-	else
-	{
-		self.maxhealth = maps/mp/zombies/_zm::ai_zombie_health( 2 );
-	}
+	self.maxhealth = level.zombie_health;
 	self.health = self.maxhealth;
 }
 
@@ -627,97 +631,6 @@ remove_trophy() //checked matches cerberus output
 	}
 }
 
-enthrone( player ) //checked changed to match cerberus output
-{
-	player endon( "dethrone" );
-	player endon( "disconnect" );
-	while ( 1 )
-	{
-		if ( cleansed_alive_check( player ) && player.is_zombie )
-		{
-			if ( !player.has_trophy )
-			{
-				player give_trophy();
-			}
-		}
-		else if ( player.has_trophy )
-		{
-			player remove_trophy();
-		}
-		wait 0.1;
-	}
-}
-
-dethrone( player ) //checked matches cerberus output
-{
-	player notify( "dethrone" );
-	player remove_trophy();
-}
-
-cleansed_set_leader( leader ) //checked matches cerberus output
-{
-	if ( isDefined( leader ) && isDefined( level.cleansed_leader ) )
-	{
-		if ( level.cleansed_leader != leader )
-		{
-			dethrone( level.cleansed_leader );
-			level.cleansed_leader = leader;
-			level thread enthrone( level.cleansed_leader );
-		}
-		return;
-	}
-	if ( isDefined( leader ) && !isDefined( level.cleansed_leader ) )
-	{
-		level.cleansed_leader = leader;
-		level thread enthrone( level.cleansed_leader );
-		return;
-	}
-	if ( !isDefined( leader ) && isDefined( level.cleansed_leader ) )
-	{
-		if ( isDefined( level.cleansed_leader ) )
-		{
-			dethrone( level.cleansed_leader );
-		}
-		level.cleansed_leader = leader;
-		return;
-	}
-}
-
-leaderwatch() //checked changed to match cerberus output may be suspicous
-{
-	level endon( "early_game_end" );
-	level endon( "normal_game_end" );
-	cleansed_set_leader( undefined );
-	while ( 1 )
-	{
-		hiscore = -1;
-		leader = undefined;
-		players = get_players();
-		foreach ( player in players )
-		{
-			if ( player.score > hiscore )
-			{
-				hiscore = player.score;
-			}
-		}
-		foreach ( player in players )
-		{
-			if ( player.score >= hiscore )
-			{
-				if ( isDefined( leader ) )
-				{
-					leader = undefined;
-					break;
-				}
-				leader = player;
-				//logic here doesn't make much sense leader will be defined but then undefined?!
-			}
-		}
-		cleansed_set_leader( leader );
-		wait 0.25;
-	}
-}
-
 cover_transition() //checked matches cerberus output
 {
 	self thread fadetoblackforxsec( 0, 0.15, 0.05, 0.1 );
@@ -738,22 +651,6 @@ disappear_in_flash( washuman ) //checked matches cerberus output
 	self ghost();
 }
 
-humanifyplayer( for_killing ) //checked matches cerberus output
-{
-	self freezecontrolswrapper( 1 );
-	self thread cover_transition();
-	self disappear_in_flash( 1 );
-	self.team = self.prevteam;
-	self.pers[ "team" ] = self.prevteam;
-	self.sessionteam = self.prevteam;
-	self turnedhuman();
-	for_killing waittill_notify_or_timeout( "respawned", 0.75 );
-	wait_network_frame();
-	self.last_player_attacker = undefined;
-	self freezecontrolswrapper( level.player_movement_suppressed );
-	self thread watch_survival_time();
-}
-
 onzombifyplayer() //checked partially changed to match cerberus output used is_true() instead
 {
 	if ( is_true( self.in_zombify_call ) )
@@ -770,15 +667,6 @@ onzombifyplayer() //checked partially changed to match cerberus output used is_t
 	if ( is_true( self.is_zombie ) )
 	{
 		self check_for_drops( 0 );
-	}
-	else if ( isDefined( self.last_player_attacker ) && isplayer( self.last_player_attacker ) && is_true( self.last_player_attacker.is_zombie ) )
-	{
-		self check_for_drops( 1 );
-		self.team = level.zombie_team;
-		self.pers[ "team" ] = level.zombie_team;
-		self.sessionteam = level.zombie_team;
-		self.last_player_attacker thread humanifyplayer( self );
-		self.player_was_turned_by = self.last_player_attacker;
 	}
 	else
 	{
@@ -825,10 +713,10 @@ setup_player() //checked matches cerberus output
 	hotjoined = flag( "initial_players_connected" );
 	flag_wait( "initial_players_connected" );
 	wait 0.05;
-	self ghost();
+	//self ghost(); //leave the player visible
 	self freezecontrolswrapper( 1 );
 	self.ignoreme = 0;
-	self.score = 0;
+	self.score = 500; //set default score of 500 like normal zombies
 	self.characterindex = level.characterindex;
 	self takeallweapons();
 	self giveweapon( "knife_zm" );
@@ -844,7 +732,9 @@ setup_player() //checked matches cerberus output
 	{
 		self.home_team = "team3";
 	}
-	self thread wait_turn_to_zombie( hotjoined );
+	logline1 = "Player " + self.name + " team " + self.team + " sessionteam " + self.sessionteam + "\n";
+	logprint( logline1 );
+	self thread wait_turn_to_zombie( hotjoined ); //disable starting out as zombie when joining unless hotjoin
 }
 
 wait_turn_to_zombie( hot ) //checked matches cerberus output
@@ -853,10 +743,11 @@ wait_turn_to_zombie( hot ) //checked matches cerberus output
 	{
 		self thread fadetoblackforxsec( 0, 1.25, 0.05, 0.25 );
 		wait 1;
+		self maps/mp/zombies/_zm_turned::turn_to_zombie();
+		self freezecontrolswrapper( level.player_movement_suppressed );
+		return;
 	}
 	self.is_zombie = 0;
-	self turn_to_zombie();
-	self freezecontrolswrapper( level.player_movement_suppressed );
 }
 
 addguntoprogression( gunname ) //checked matches cerberus output
@@ -1268,12 +1159,6 @@ zcleansed_powerup_custom_time_logic( powerup ) //checked matches cerberus output
 	return 15;
 }
 
-spawn_initial_cure_powerup() //checked matches cerberus output
-{
-	struct = random( level._turned_powerup_spawnpoints );
-	maps/mp/zombies/_zm_powerups::specific_powerup_drop( "the_cure", struct.origin );
-}
-
 spawn_cymbalmonkey( origin ) //checked matches cerberus output
 {
 	monkey = maps/mp/zombies/_zm_powerups::specific_powerup_drop( "blue_monkey", origin );
@@ -1594,5 +1479,332 @@ turned_powerup_yellow_nuke( player ) //checked partially changed to match cerber
 				target thread player_nuke( player );
 			}
 		}
+	}
+}
+
+round_wait() //checked changed to match cerberus output
+{
+	level endon( "restart_round" );
+	//wait 1;
+	if ( flag( "dog_round" ) )
+	{
+		wait 7 ;
+		while ( level.dog_intermission )
+		{
+			wait 0.5;
+		}
+		increment_dog_round_stat( "finished" );
+	}
+	wait_time = 30 - level.infected_difficulty;
+	if ( wait_time < 0 )
+	{
+		wait_time = 1;
+	}
+	wait wait_time;
+}
+
+turned_round_spawn_func()
+{
+	level endon( "intermission" );
+	level endon( "end_of_round" );
+	level endon( "restart_round" );
+	if ( level.intermission )
+	{
+		return;
+	}
+	if ( level.zombie_spawn_locations.size < 1 )
+	{
+		return;
+	}
+	ai_calculate_health( level.round_number );
+	count = 0;
+	players = get_players();
+	for ( i = 0; i < players.size; i++ )
+	{
+		players[ i ].zombification_time = 0;
+	}
+	max = level.zombie_vars[ "zombie_max_ai" ];
+	multiplier = level.round_number / 5;
+	if ( multiplier < 1 )
+	{
+		multiplier = 1;
+	}
+	if ( level.round_number >= 10 )
+	{
+		multiplier *= level.round_number * 0.15;
+	}
+	player_num = get_players().size;
+	if ( player_num == 1 )
+	{
+		max += int( 0.5 * level.zombie_vars[ "zombie_ai_per_player" ] * multiplier );
+	}
+	else
+	{
+		max += int( ( player_num - 1 ) * level.zombie_vars[ "zombie_ai_per_player" ] * multiplier );
+	}
+	if ( !isDefined( level.max_zombie_func ) )
+	{
+		level.max_zombie_func = ::default_max_zombie_func;
+	}
+	if ( isDefined( level.kill_counter_hud ) && level.zombie_total > 0 )
+	{
+		level.zombie_total = [[ level.max_zombie_func ]]( max );
+		level notify( "zombie_total_set" );
+	}
+	if ( isDefined( level.zombie_total_set_func ) )
+	{
+		level thread [[ level.zombie_total_set_func ]]();
+	}
+	if ( level.round_number < 10 || level.speed_change_max > 0 )
+	{
+		level thread zombie_speed_up();
+	}
+	level.zombie_total = [[ level.max_zombie_func ]]( max );
+	level notify( "zombie_total_set" );
+	mixed_spawns = 0;
+	old_spawn = undefined;
+	while ( 1 )
+	{
+		while ( get_current_zombie_count() >= level.zombie_ai_limit || level.zombie_total <= 0 )
+		{
+			wait 0.1;
+		}
+		while ( get_current_actor_count() >= level.zombie_actor_limit )
+		{
+			clear_all_corpses();
+			wait 0.1;
+		}
+		flag_wait( "spawn_zombies" );
+		while ( level.zombie_spawn_locations.size <= 0 )
+		{
+			wait 0.1;
+		}
+		run_custom_ai_spawn_checks();
+		spawn_point = level.zombie_spawn_locations[ randomint( level.zombie_spawn_locations.size ) ];
+		if ( !isDefined( old_spawn ) )
+		{
+			old_spawn = spawn_point;
+		}
+		else if ( spawn_point == old_spawn )
+		{
+			spawn_point = level.zombie_spawn_locations[ randomint( level.zombie_spawn_locations.size ) ];
+		}
+		old_spawn = spawn_point;
+		if ( isDefined( level.zombie_spawners ) )
+		{
+			spawner = random( level.zombie_spawners );
+			ai = spawn_zombie( spawner, spawner.targetname, spawn_point );
+		}
+		if ( isDefined( ai ) )
+		{
+			level.zombie_total--;
+
+			ai thread round_spawn_failsafe();
+			count++;
+		}
+		wait level.zombie_vars[ "zombie_spawn_delay" ];
+		wait_network_frame();
+	}
+}
+
+monitor_alive_players()
+{
+	level endon( "end_game" );
+	level endon( "end_game_wrapper" );
+	while ( true )
+	{
+		valid_players = 0;
+		players = getPlayers();
+		foreach ( player in players )
+		{
+			if ( is_player_valid( player ) )
+			{
+				valid_players++;
+			}
+		}
+		if ( valid_players == 0 )
+		{
+			level notify( "end_game_wrapper", "all_players_zombified" );
+		}
+		wait 0.5;
+	}
+}
+
+monitor_timelimit()
+{
+	level endon( "end_game" );
+	level endon( "end_game_wrapper" );
+	while ( maps/mp/gametypes_zm/_globallogic_utils::gettimeremaining() > 0 )
+	{
+		wait 1;
+	}
+	level notify( "end_game_wrapper", "timelimit_reached" );
+}
+
+//Player with the highest score is the winner on the winning side. 
+wait_for_end_game()
+{
+	level waittill( "end_game_wrapper", reason );
+	switch ( reason )
+	{
+		case "all_players_zombiefied":
+			winner = "zombies";
+			break;
+		case "timelimit_reached":
+			winner = "humans";
+			break;
+		default:
+			break;
+	}
+	level.zombie_players_end_game = [];
+	level.human_players_end_game = [];
+	foreach ( player in level.players )
+	{
+		if ( is_true( player.is_zombie ) )
+		{
+			level.zombie_players_end_game[ level.zombie_players_end_game.size ] = player;
+		}
+		else 
+		{
+			level.human_players_end_game[ level.human_players_end_game.size ] = player;
+		}
+	}
+	if ( winner == "zombies" )
+	{
+		foreach ( player in level.zombie_players_end_game )
+		{
+
+		}
+	}
+	else if ( winner == "humans" )
+	{
+		foreach ( player in level.zombie_players_end_game )
+		{
+
+		}
+		foreach ( player in level.human_players_end_game )
+		{
+
+		}
+	}
+}
+
+init_custom_zombie_properties()
+{
+	level.infected_difficulty = 0;
+	level.custom_zombie_properties = [];
+	level.custom_zombie_properties[ "start_infected" ] = spawnStruct();
+	level.custom_zombie_properties[ "new_infected" ] = spawnStruct();
+	stats = getDvar( "infected_start_zombie_stats" ); //base_health:150 health_increase_multiplier:1 health_increase_flat:100 base_speed:0.55 speed_increase_flat:0.025
+	if ( stats == "" )
+	{
+		level.custom_zombie_properties[ "start_infected" ].base_health = 150;
+		level.custom_zombie_properties[ "start_infected" ].health_increase_multiplier = 1;
+		level.custom_zombie_properties[ "start_infected" ].health_increase_flat = 100;
+		level.custom_zombie_properties[ "start_infected" ].base_speed = 0.55;
+		level.custom_zombie_properties[ "start_infected" ].speed_increase_flat = 0.025;
+	}
+	else 
+	{
+		stat_values = get_stats_from_dvar( stats );
+		level.custom_zombie_properties[ "start_infected" ].base_health = stat_values[ 0 ];
+		level.custom_zombie_properties[ "start_infected" ].health_increase_multiplier = stat_values[ 1 ];
+		level.custom_zombie_properties[ "start_infected" ].health_increase_flat = stat_values[ 2 ];
+		level.custom_zombie_properties[ "start_infected" ].base_speed = stat_values[ 3 ];
+		level.custom_zombie_properties[ "start_infected" ].speed_increase_flat = stat_values[ 4 ];
+	}
+	stats = getDvar( "infected_new_zombie_stats" ); //base_health:150 health_increase_multiplier:1 health_increase_flat:100 base_speed:0.55 speed_increase_flat:0.025
+	if ( stats == "" )
+	{
+		level.custom_zombie_properties[ "new_infected" ].base_health = 150;
+		level.custom_zombie_properties[ "new_infected" ].health_increase_multiplier = 1;
+		level.custom_zombie_properties[ "new_infected" ].health_increase_flat = 100;
+		level.custom_zombie_properties[ "new_infected" ].base_speed = 0.55;
+		level.custom_zombie_properties[ "new_infected" ].speed_increase_flat = 0.01;
+	}
+	else 
+	{
+		stat_values = get_stats_from_dvar( stats );
+		level.custom_zombie_properties[ "new_infected" ].base_health = stat_values[ 0 ];
+		level.custom_zombie_properties[ "new_infected" ].health_increase_multiplier = stat_values[ 1 ];
+		level.custom_zombie_properties[ "new_infected" ].health_increase_flat = stat_values[ 2 ];
+		level.custom_zombie_properties[ "new_infected" ].base_speed = stat_values[ 3 ];
+		level.custom_zombie_properties[ "new_infected" ].speed_increase_flat = stat_values[ 4 ];
+	}
+	if ( getDvarIntDefault( "infected_use_special_zombies", 0 ) == 1 )
+	{
+		level.custom_zombie_properties[ "tank_infected" ] = spawnStruct();
+		level.custom_zombie_properties[ "fast_infected" ] = spawnStruct();
+	}
+	else 
+	{
+		return;
+	}
+	stats = getDvar( "infected_tank_zombie_stats" ); //base_health:150 health_increase_multiplier:1 health_increase_flat:100 base_speed:0.55 speed_increase_flat:0.025
+	if ( stats == "" )
+	{
+		level.custom_zombie_properties[ "tank_infected" ].base_health = 300;
+		level.custom_zombie_properties[ "tank_infected" ].health_increase_multiplier = 1.05;
+		level.custom_zombie_properties[ "tank_infected" ].health_increase_flat = 200;
+		level.custom_zombie_properties[ "tank_infected" ].base_speed = 0.45;
+		level.custom_zombie_properties[ "tank_infected" ].speed_increase_flat = 0.005;
+	}
+	else 
+	{
+		stat_values = get_stats_from_dvar( stats );
+		level.custom_zombie_properties[ "tank_infected" ].base_health = stat_values[ 0 ];
+		level.custom_zombie_properties[ "tank_infected" ].health_increase_multiplier = stat_values[ 1 ];
+		level.custom_zombie_properties[ "tank_infected" ].health_increase_flat = stat_values[ 2 ];
+		level.custom_zombie_properties[ "tank_infected" ].base_speed = stat_values[ 3 ];
+		level.custom_zombie_properties[ "tank_infected" ].speed_increase_flat = stat_values[ 4 ];
+	}
+	stats = getDvar( "infected_fast_zombie_stats" ); //base_health:150 health_increase_multiplier:1 health_increase_flat:100 base_speed:0.55 speed_increase_flat:0.025
+	if ( stats == "" )
+	{
+		level.custom_zombie_properties[ "fast_infected" ].base_health = 100;
+		level.custom_zombie_properties[ "fast_infected" ].health_increase_multiplier = 1;
+		level.custom_zombie_properties[ "fast_infected" ].health_increase_flat = 75;
+		level.custom_zombie_properties[ "fast_infected" ].base_speed = 0.7;
+		level.custom_zombie_properties[ "fast_infected" ].speed_increase_flat = 0.01;
+	}
+	else 
+	{
+		stat_values = get_stats_from_dvar( stats );
+		level.custom_zombie_properties[ "fast_infected" ].base_health = stat_values[ 0 ];
+		level.custom_zombie_properties[ "fast_infected" ].health_increase_multiplier = stat_values[ 1 ];
+		level.custom_zombie_properties[ "fast_infected" ].health_increase_flat = stat_values[ 2 ];
+		level.custom_zombie_properties[ "fast_infected" ].base_speed = stat_values[ 3 ];
+		level.custom_zombie_properties[ "fast_infected" ].speed_increase_flat = stat_values[ 4 ];
+	}
+	level.zombie_special_types = [];
+	level.zombie_special_types[ 0 ] = "tank_infected";
+	level.zombie_special_types[ 1 ] = "fast_infected";
+}
+
+get_stats_from_dvar( stats )
+{
+	stat_tokens = strTok( stats, " " );
+	stat_values = [];
+	foreach ( token in stat_tokens )
+	{
+		stat_values[ stat_values.size ] = strTok( token, ":" );
+	}
+	return stat_values;
+}
+
+pick_random_player_to_be_zombie()
+{
+	random_player = random( level.players );
+	self.zombie_type = "start_infected";
+	random_player maps/mp/zombies/_zm_turned::turn_to_zombie();
+}
+
+increase_zombie_difficulty()
+{
+	level.infected_difficulty = 0;
+	while ( true )
+	{
+		wait 30;
+		level.infected_difficulty++;
 	}
 }
