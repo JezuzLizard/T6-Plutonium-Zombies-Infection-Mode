@@ -184,6 +184,10 @@ main( bscriptgened, bcsvgened, bsgenabled ) //checked partially changed to match
 			}
 		}
 	}
+	if ( getDvar( "g_gametype" ) == "zcleansed" )
+	{ 
+		register_perk_locations_zcleansed();
+	}
 }
 
 level_notify_listener() //checked matches cerberus output
@@ -505,6 +509,31 @@ start_intro_screen_zm() //checked changed to match cerberus output
 	wait 1;
 }
 
+register_perk_locations_zcleansed()
+{
+	register_zcleansed_perk( "specialty_weapupgrade", "p6_anim_zm_buildable_pap", ( 0, 191.4, 0 ), ( 1205.61, 698.608, -17.68 ) );
+	register_zcleansed_perk( "specialty_armorvest", "zombie_vending_jugg", ( 0, 1, 0 ),( -665.13, 1069.13, 9.49 ) );
+	register_zcleansed_perk( "specialty_longersprint", "zombie_vending_marathon", ( 0, 0, 0 ), ( 761.63, 1542.25, 0 ) );
+	register_zcleansed_perk( "specialty_rof", "zombie_vending_doubletap2", ( 0, 180, 0 ), ( 2328, 936.5, 88 ) );
+	register_zcleansed_perk( "specialty_additionalprimaryweapon", "zombie_vending_three_gun", ( 0, 180, 0 ), ( -711, -1249.5, 140.5 ) );
+	register_zcleansed_perk( "specialty_fastreload", "zombie_vending_sleight", ( 0, 90, 0 ), ( -170.5, -328.25, 144 ) );
+}
 
+register_zcleansed_perk( perk_name, perk_model, perk_angles, perk_coordinates )
+{
+	perk_struct = spawnStruct();
+	perk_struct.script_noteworthy = perk_name;
+	perk_struct.model = perk_model;
+	perk_struct.angles = perk_angles;
+	perk_struct.origin = perk_coordinates;
+	perk_struct.script_string = _get_perk_script_string_for_location( getDvar( "ui_zm_mapstartlocation" ), getDvar( "g_gametype") );
+	perk_struct.targetname = "zm_perk_machine";
+	struct_size = level.struct_class_names[ "targetname" ][ "zm_perk_machine" ].size;
+	level.struct_class_names[ "targetname" ][ "zm_perk_machine" ][ struct_size ] = perk_struct;
+}
 
-
+_get_perk_script_string_for_location( location, gametype )
+{ 
+	string = gametype + "_" + "perks" + "_" + location;
+	return string;
+}
