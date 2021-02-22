@@ -116,22 +116,22 @@ turn_to_zombie() //checked changed to match cerberus output
 	self setperk( "specialty_unlimitedsprint" );
 	self setperk( "specialty_fallheight" );
 	self turned_give_melee_weapon();
-	self setmovespeedscale( 1 );
 	self.animname = "zombie";
 	self disableoffhandweapons();
 	self allowstand( 1 );
-	self allowprone( 0 );
-	self allowcrouch( 0 );
+	self allowprone( 1 );
+	self allowcrouch( 1 );
 	self allowads( 0 );
-	self allowjump( 0 );
+	self allowjump( 1 );
 	self disableweaponcycling();
-	self setmovespeedscale( 1 );
+	self assign_zombie_type();
+	self setmovespeedscale( self calculate_zombie_speed() );
 	self setsprintduration( 4 );
 	self setsprintcooldown( 0 );
 	self stopshellshock();
-	self.maxhealth = 256;
-	self.health = 256;
-	self.meleedamage = 1000;
+	self.maxhealth = calculate_zombie_health();
+	self.health = self.maxhealth;
+	self.meleedamage = 20;
 	self detachall();
 	if ( isDefined( level.custom_zombie_player_loadout ) )
 	{
@@ -429,3 +429,38 @@ getspawnpoint() //checked matches cerberus output
 	return spawnpoint;
 }
 
+assign_zombie_type()
+{
+	if ( getDvarInt( "infected_use_special_zombies" ) == 1 )
+	{
+		self.zombie_type = random( level.zombie_special_types );
+	}
+	if ( !isDefined( self.zombie_type ) )
+	{
+		self.zombie_type = "new_infected";
+	}
+}
+
+calculate_zombie_health()
+{
+ 	base_health = level.custom_zombie_properties[ self.zombie_type ].base_health;
+	multiplier = level.custom_zombie_properties[ self.zombie_type ].health_increase_multiplier;
+	flat_increase = level.custom_zombie_properties[ self.zombie_type ].health_increase_flat;
+	new_health = base_health + ( flat_increase * level.infected_difficulty );
+	if ( multiplier > 1 )
+	{
+		for ( i = 0; i < level.infected_difficulty; i++ )
+		{
+			new_health *= multiplier;
+		}
+	}
+	return new_health;
+}
+
+calculate_zombie_speed()
+{
+	base_speed = level.custom_zombie_properties[ self.zombie_type ].base_speed;
+	speed_increase = level.custom_zombie_properties[ self.zombie_type ].speed_increase_flat;
+	new_speed = base_speed + ( speed_increase * level.infected_difficulty );
+	return new_speed;
+}
