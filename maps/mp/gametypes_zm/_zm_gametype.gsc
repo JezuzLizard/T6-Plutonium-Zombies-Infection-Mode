@@ -39,7 +39,7 @@ main() //checked matches cerberus output
 	maps/mp/gametypes_zm/_weapons::registerkillstreakdelay( level.gametype, 0, 0, 1440 );
 	maps/mp/gametypes_zm/_globallogic::registerfriendlyfiredelay( level.gametype, 15, 0, 1440 );
 	level.takelivesondeath = 1;
-	level.teambased = 1;
+	level.teambased = 0; //temporary change to patch the scoreboard
 	level.disableprematchmessages = 1;
 	level.disablemomentum = 1;
 	level.overrideteamscore = 0;
@@ -55,7 +55,7 @@ main() //checked matches cerberus output
 	level.scoreroundbased = 0;
 	level.forceautoassign = 1;
 	level.dontshowendreason = 1;
-	level.forceallallies = 0;
+	level.forceallallies = 1; //temporary change to patch the scoreboard
 	level.allow_teamchange = 0;
 	setdvar( "scr_disable_team_selection", 1 );
 	makedvarserverinfo( "scr_disable_team_selection", 1 );
@@ -125,7 +125,10 @@ game_objects_allowed( mode, location ) //checked partially changed to match cerb
 						entities[ i ] connectpaths();
 					}
 				}
-				entities[ i ] delete();
+				if ( getDvar( "g_gametype" ) != "zcleansed" )
+				{ 
+					entities[ i ] delete();
+				}
 				i++;
 				continue;
 			}
