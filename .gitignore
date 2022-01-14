@@ -1,7 +1,1 @@
-
-./build/_load.gsc
-./build/_zm_gametype.gsc
-./build/_zm_turned.gsc
-./build/zcleansed.gsc
-./build/zm_buried_turned_street.gsc
-./maps/mp/gametypes_zm/zcleansed - Copy.gsc
+build/
